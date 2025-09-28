@@ -76,15 +76,13 @@ function loadTabulatorData() {
                 { column: "Number", dir: "asc" },
             ],
             columns: [
-                { title: "Number", field: "Number", editor: "input" },
+                { title: "Number", field: "Number", editor: "input", sorter: "number" },
                 { title: "Title", field: "Title", editor: "input", minWidth: 200 },
                 { title: "Composer", field: "Composer", editor: "input" },
                 { title: "Arranger", field: "Arranger", editor: "input" },
                 { title: "Arranger/Composer", field: "Arranger/Composer", editor: "input" },
                 { title: "Feature", field: "Feature", editor: "input" },
-                { title: "PDF", field: "PDF", formatter: (cell) => cell.getValue() ? `<a href="${baseUrl}/${cell.getValue()}" target="_blank">PDF</a>` : "", hozAlign: "center", headerSort: false },
                 { title: "Album", field: "Album", editor: "input" },
-                { title: "MP3", field: "MP3", formatter: (cell) => cell.getValue() ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${cell.getValue()}" data-title="${cell.getRow().getData().Title}">Play</button>` : "", hozAlign: "center", headerSort: false },
             ],
         });
 
