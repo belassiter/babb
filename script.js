@@ -70,18 +70,19 @@ function loadTabulatorData() {
 
         const table = new Tabulator("#songs-table", {
             data: tableData,
-            layout: "fitColumns",
+            layout: "fitData", // Let columns size to content
+            responsiveLayout: "collapse", // Collapse columns that don't fit
             history: true, // Enable undo/redo
             columns: [
-                { title: "Number", field: "Number", editor: "input", width: 100 },
-                { title: "Title", field: "Title", editor: "input" },
+                { title: "Number", field: "Number", editor: "input" },
+                { title: "Title", field: "Title", editor: "input", minWidth: 200 }, // Give title more space
                 { title: "Composer", field: "Composer", editor: "input" },
                 { title: "Arranger", field: "Arranger", editor: "input" },
                 { title: "Arranger/Composer", field: "Arranger/Composer", editor: "input" },
                 { title: "Feature", field: "Feature", editor: "input" },
-                { title: "PDF", field: "PDF", formatter: (cell) => cell.getValue() ? `<a href="${baseUrl}/${cell.getValue()}" target="_blank">PDF</a>` : "" },
+                { title: "PDF", field: "PDF", formatter: (cell) => cell.getValue() ? `<a href="${baseUrl}/${cell.getValue()}" target="_blank">PDF</a>` : "", hozAlign: "center", headerSort: false },
                 { title: "Album", field: "Album", editor: "input" },
-                { title: "MP3", field: "MP3", formatter: (cell) => cell.getValue() ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${cell.getValue()}" data-title="${cell.getRow().getData().Title}">Play</button>` : "" },
+                { title: "MP3", field: "MP3", formatter: (cell) => cell.getValue() ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${cell.getValue()}" data-title="${cell.getRow().getData().Title}">Play</button>` : "", hozAlign: "center", headerSort: false },
             ],
         });
 
