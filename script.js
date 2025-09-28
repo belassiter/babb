@@ -71,7 +71,6 @@ function loadTabulatorData() {
         const table = new Tabulator("#songs-table", {
             data: tableData,
             layout: "fitData", // Let columns size to content
-            responsiveLayout: "collapse", // Collapse columns that don't fit
             history: true, // Enable undo/redo
             columns: [
                 { title: "Number", field: "Number", editor: "input" },
