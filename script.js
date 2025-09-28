@@ -32,7 +32,6 @@ function loadDataTablesData() {
             <td>${song.Title || ''}</td>
             <td>${song.Composer || ''}</td>
             <td>${song.Arranger || ''}</td>
-            <td>${song['Arranger/Composer'] || ''}</td>
             <td>${song.Feature || ''}</td>
             <td>${song.PDF ? `<a href="${baseUrl}/${song.PDF}" target="_blank">PDF</a>` : ''}</td>
             <td>${song.Album || ''}</td>
