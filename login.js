@@ -6,7 +6,8 @@ const provider = new GoogleAuthProvider();
 // --- IMPORTANT ---
 // Add the email addresses of authorized admins here
 const authorizedAdmins = [
-    'belassiter@gmail.com', // Replace with your authorized Google account(s)
+    'belassiter@gmail.com',
+    'brian@belassiter.com'
 ];
 
 document.getElementById('google-login-btn').addEventListener('click', () => {
