@@ -115,6 +115,7 @@ getDocs(songsCollectionRef)
         "order": [[ 0, "asc" ]],
         "paging": false,
         "responsive": true,
+        "fixedHeader": true,
         //buttons for column visibility
         "dom": 'Bfrtip',
         "buttons": [
