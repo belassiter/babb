@@ -8,15 +8,7 @@ const baseUrl = "https://belassiter.com/babb";
 // ---------------------
 
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-    apiKey: "AIzaSyBb_jEEVPyLIEbQx7O3-g9dAGEZE0621rA",
-    authDomain: "babb-9779f.firebaseapp.com",
-    projectId: "babb-9779f",
-    storageBucket: "babb-9779f.firebasestorage.app",
-    messagingSenderId: "213430303495",
-    appId: "1:213430303495:web:a066e43017590d5db863a2",
-    measurementId: "G-Q8W5LXF1RR"
-};
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);

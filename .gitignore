@@ -3,3 +3,6 @@ babb-9779f-firebase-adminsdk-fbsvc-7e56b3262e.json
 
 # Node.js dependencies
 node_modules/
+
+# Local Firebase config
+firebase-config.js
