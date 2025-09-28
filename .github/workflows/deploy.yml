@@ -40,7 +40,13 @@ jobs:
         # This prevents the directory error.
         state-name: .ftp-deploy-state-${{ steps.vars.outputs.repo_name }}.json
         # 👇 This correctly excludes only the files you don't want to upload.
+
         exclude: |
+          **/.git*
+          **/.github/**
+          node_modules/**
+          *.csv
+          upload-to-firestore.js
           README.md
           LICENSE
-          node_modules/**
+
