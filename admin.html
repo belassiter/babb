@@ -3,67 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BABB Band Repertoire</title>
-     <!-- <link rel="stylesheet" href="style.css"> -->
+    <title>BABB Admin</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- DataTables Bootstrap 5 Theme -->
-    <link href="https://cdn.datatables.net/1.12.1/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-    <!-- DataTables Responsive Theme -->
-    <link href="https://cdn.datatables.net/responsive/2.3.0/css/responsive.bootstrap5.min.css" rel="stylesheet">
-    <!-- DataTables Buttons CSS -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.2.3/css/buttons.bootstrap5.min.css"/>
-    <!-- DataTables FixedHeader CSS -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/fixedheader/3.2.3/css/fixedHeader.bootstrap5.min.css"/>
+    <!-- Tabulator CSS -->
+    <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_bootstrap5.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <center><h1>BABB Repertoire</h1></center>
+    <center><h1>BABB Repertoire - Admin</h1></center>
 
-    <table id="songs-table" class="table table-striped table-bordered" style="width:100%">
-    <thead>
-        <tr>
-        <th>Number</th>
-        <th>Title</th>
-        <th>Composer</th>
-        <th>Arranger</th>
-        <th>Arranger/Composer</th>
-        <th>Feature</th>
-        <th>PDF</th>
-        <th>Album</th>
-        <th>MP3</th>
-        <th>Edit</th>
-        <th>Delete</th>
-        </tr>
-    </thead>
-    <tbody id="songs-table-body">
-        <!-- Song data will be inserted here by the script -->
-    </tbody>
-    </table>
+    <div id="songs-table"></div>
 
-    <!-- jQuery -->
+    <!-- jQuery (optional for Tabulator, but we might use it elsewhere) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- DataTables Core JS -->
-    <script src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.min.js"></script>
-    <!-- DataTables Bootstrap 5 Integration JS -->
-    <script src="https://cdn.datatables.net/1.12.1/js/dataTables.bootstrap5.min.js"></script>
-    <!-- DataTables Responsive JS -->
-    <script src="https://cdn.datatables.net/responsive/2.3.0/js/dataTables.responsive.min.js"></script>
-    <script src="https://cdn.datatables.net/responsive/2.3.0/js/responsive.bootstrap5.min.js"></script>
-    <!-- DataTables Buttons JS -->
-    <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.3/js/dataTables.buttons.min.js"></script>
-    <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.3/js/buttons.bootstrap5.min.js"></script>
-    <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.3/js/buttons.colVis.min.js"></script>
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"></script>
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"></script>
-    <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.3/js/buttons.html5.min.js"></script>
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.2.3/js/buttons.print.min.js"></script>
-
-    <!-- DataTables FixedHeader JS -->
-    <script type="text/javascript" src="https://cdn.datatables.net/fixedheader/3.2.3/js/dataTables.fixedHeader.min.js"></script>
+    
+    <!-- Tabulator JS -->
+    <script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
 
     <!-- Firebase configuration -->
     <script src="firebase-config.js"></script>
@@ -90,7 +49,6 @@
             <audio id="global-audio-player" controls style="width: 60%;"></audio>
         </div>
     </div>
-
 
 </body>
 </html>
