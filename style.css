@@ -78,6 +78,24 @@ h1 {
     box-sizing: border-box;
 }
 
+/* Mobile: use full device width for the table, remove body side padding */
+@media (max-width: 600px) {
+    body {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .dataTables_wrapper {
+        max-width: 100%;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    #songs-table_filter {
+        padding-right: 6px;
+    }
+}
+
 /* Ensure the table uses the wrapper width and doesn't allow internal
    cloned header tables to become wider than the wrapper. */
 #songs-table {
