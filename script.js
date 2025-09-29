@@ -15,6 +15,17 @@ document.body.style.display = 'none';
 const baseUrl = "https://belassiter.com/babb";
 // ---------------------
 
+function playSong(button) {
+    const audioPlayerContainer = document.getElementById('audio-player-container');
+    const audioPlayer = document.getElementById('global-audio-player');
+    const nowPlayingTitle = document.getElementById('now-playing-title');
+    
+    audioPlayer.src = button.getAttribute('data-src');
+    nowPlayingTitle.textContent = button.getAttribute('data-title');
+    audioPlayerContainer.style.display = 'block';
+    audioPlayer.play();
+}
+
 function loadDataTablesData() {
     const songsCollectionRef = collection(db, "songs");
 
@@ -40,13 +51,19 @@ function loadDataTablesData() {
           tableBody.appendChild(row);
         });
 
-        $('#songs-table').DataTable({
+        const table = $('#songs-table').DataTable({
             "order": [[ 0, "asc" ]],
             "paging": false,
             "responsive": true,
             "fixedHeader": true,
             "dom": 'Bfrtip',
-            "buttons": ['colvis', 'pdf', 'csv', 'excel', 'print']
+            "buttons": ['pdf', 'csv', 'excel', 'print']
+        });
+
+        // Add event listener for play buttons using DataTables API
+        table.on('click', '.play-btn', function (e) {
+            e.preventDefault();
+            playSong(this);
         });
 
         document.body.style.display = 'block';
@@ -82,6 +99,18 @@ function loadTabulatorData() {
                 { title: "Arranger/Composer", field: "Arranger/Composer", editor: "input" },
                 { title: "Feature", field: "Feature", editor: "input" },
                 { title: "Album", field: "Album", editor: "input" },
+                { 
+                    title: "MP3", 
+                    field: "MP3", 
+                    hozAlign: "center", 
+                    headerSort: false,
+                    formatter: (cell) => cell.getValue() ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${cell.getValue()}" data-title="${cell.getRow().getData().Title}">Play</button>` : "",
+                    cellClick: function(e, cell){
+                        if (e.target.classList.contains('play-btn')) {
+                            playSong(e.target);
+                        }
+                    }
+                },
             ],
         });
 
@@ -127,21 +156,6 @@ function loadTabulatorData() {
         document.body.style.display = 'block';
       });
 }
-
-// --- Global Event Listeners ---
-document.body.addEventListener('click', function(event) {
-    if (event.target.classList.contains('play-btn')) {
-        const audioPlayerContainer = document.getElementById('audio-player-container');
-        const audioPlayer = document.getElementById('global-audio-player');
-        const nowPlayingTitle = document.getElementById('now-playing-title');
-        
-        const button = event.target;
-        audioPlayer.src = button.getAttribute('data-src');
-        nowPlayingTitle.textContent = button.getAttribute('data-title');
-        audioPlayerContainer.style.display = 'block';
-        audioPlayer.play();
-    }
-});
 
 // --- Page Routing ---
 if (window.location.pathname.endsWith('admin.html')) {
