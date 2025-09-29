@@ -96,7 +96,6 @@ function loadTabulatorData() {
                 { title: "Title", field: "Title", editor: "input", minWidth: 200 },
                 { title: "Composer", field: "Composer", editor: "input" },
                 { title: "Arranger", field: "Arranger", editor: "input" },
-                { title: "Arranger/Composer", field: "Arranger/Composer", editor: "input" },
                 { title: "Feature", field: "Feature", editor: "input" },
                 { title: "Album", field: "Album", editor: "input" },
                 { 
