@@ -54,14 +54,14 @@ function loadDataTablesData() {
         const table = $('#songs-table').DataTable({
             "order": [[ 0, "asc" ]],
             "paging": false,
-            "responsive": true,
+            "responsive": false,
             "fixedHeader": true,
             "dom": 'Bfrtip',
             "buttons": ['pdf', 'csv', 'excel', 'print']
         });
 
         // Add event listener for play buttons using DataTables API
-        table.on('click', '.play-btn', function (e) {
+        table.on('click touchend', '.play-btn', function (e) {
             e.preventDefault();
             playSong(this);
         });
