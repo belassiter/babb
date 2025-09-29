@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
 
 // Initialize Firebase
@@ -138,6 +138,28 @@ function loadTabulatorData() {
                         }
                     }
                 },
+                {
+                    title: "Delete",
+                    formatter: "buttonCross",
+                    width: 40,
+                    hozAlign: "center",
+                    cellClick: function(e, cell) {
+                        const row = cell.getRow();
+                        const docId = row.getData().id;
+                        if (confirm("Are you sure you want to delete this row?")) {
+                            const songRef = doc(db, "songs", docId);
+                            deleteDoc(songRef)
+                                .then(() => {
+                                    console.log("Document successfully deleted!");
+                                    row.delete();
+                                })
+                                .catch((error) => {
+                                    console.error("Error removing document: ", error);
+                                    alert("Error deleting row. See console for details.");
+                                });
+                        }
+                    }
+                }
             ],
         });
 
@@ -159,6 +181,22 @@ function loadTabulatorData() {
             table.setFilter(customGlobalFilter, { value: filterValue });
         });
 
+        // --- Add Row Button ---
+        const addRowBtn = document.getElementById("add-row-btn");
+        addRowBtn.addEventListener("click", function(){
+            // Add a new song to Firestore
+            addDoc(collection(db, "songs"), { Title: "New Song" })
+                .then((docRef) => {
+                    console.log("Document written with ID: ", docRef.id);
+                    // Add to Tabulator table
+                    table.addRow({ id: docRef.id, Title: "New Song" });
+                    table.redraw(); // Redraw table to show new row
+                })
+                .catch((error) => {
+                    console.error("Error adding document: ", error);
+                    alert("Error adding new row. See console for details.");
+                });
+        });
 
         table.on("cellEdited", function(cell){
             const docId = cell.getRow().getData().id;
