@@ -20,8 +20,12 @@ function playSong(button) {
     const audioPlayer = document.getElementById('global-audio-player');
     const nowPlayingTitle = document.getElementById('now-playing-title');
     
+    const number = button.getAttribute('data-number');
+    const title = button.getAttribute('data-title');
+    const album = button.getAttribute('data-album');
+
     audioPlayer.src = button.getAttribute('data-src');
-    nowPlayingTitle.textContent = button.getAttribute('data-title');
+    nowPlayingTitle.textContent = `#${number} - ${title} from ${album}`;
     audioPlayerContainer.style.display = 'block';
     audioPlayer.play();
 }
@@ -44,9 +48,8 @@ function loadDataTablesData() {
             <td>${song.Composer || ''}</td>
             <td>${song.Arranger || ''}</td>
             <td>${song.Feature || ''}</td>
+            <td>${song.MP3 ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${song.MP3}" data-number="${song.Number || ''}" data-title="${song.Title || ''}" data-album="${song.Album || ''}">Play</button>` : ''}</td>
             <td>${song.PDF ? `<a href="${baseUrl}/${song.PDF}" target="_blank">PDF</a>` : ''}</td>
-            <td>${song.Album || ''}</td>
-            <td>${song.MP3 ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${song.MP3}" data-title="${song.Title}">Play</button>` : ''}</td>
           `;
           tableBody.appendChild(row);
         });
@@ -57,7 +60,7 @@ function loadDataTablesData() {
             "responsive": false,
             "fixedHeader": true,
             "dom": 'Bfrtip',
-            "buttons": ['pdf', 'csv', 'excel', 'print']
+            "buttons": ['pdf', 'excel', 'print']
         });
 
         // Add event listener for play buttons using DataTables API
@@ -103,7 +106,10 @@ function loadTabulatorData() {
                     field: "MP3", 
                     hozAlign: "center", 
                     headerSort: false,
-                    formatter: (cell) => cell.getValue() ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${cell.getValue()}" data-title="${cell.getRow().getData().Title}">Play</button>` : "",
+                    formatter: (cell) => {
+                        const song = cell.getRow().getData();
+                        return cell.getValue() ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${cell.getValue()}" data-number="${song.Number || ''}" data-title="${song.Title || ''}" data-album="${song.Album || ''}">Play</button>` : "";
+                    },
                     cellClick: function(e, cell){
                         if (e.target.classList.contains('play-btn')) {
                             playSong(e.target);
