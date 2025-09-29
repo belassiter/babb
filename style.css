@@ -29,3 +29,80 @@ h1 {
 #song-list li:last-child {
     border-bottom: none;
 }
+
+/* Align DataTables built-in filter with the table container.
+   DataTables places filter markup in a div with id="#songs-table_filter".
+   Instead of floating, make it respect the table's width and right-align
+   its contents so the search box lines up with the table's right edge.
+*/
+#songs-table {
+    /* ensure table is centered and constrained by the page padding */
+    margin-left: auto;
+    margin-right: auto;
+    max-width: calc(100% - 40px); /* leave page padding space */
+}
+
+#songs-table_filter {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 0.5rem;
+    /* right-align the inner label/input that DataTables injects */
+    text-align: right;
+    padding-right: 10px; /* breathing room so the input or its clear icon isn't clipped */
+}
+
+/* When DataTables injects a .dataTables_wrapper, make sure wrapper doesn't
+   allow the filter to overflow the table width on small screens */
+.dataTables_wrapper {
+    /* Allow visible overflow so native input controls (clear 'x') are not clipped.
+       Width constraints are enforced elsewhere via max-width. */
+    overflow: visible;
+}
+
+/* Ensure the built-in label/input don't stretch beyond the table */
+#songs-table_filter label {
+    display: inline-block;
+    max-width: 100%;
+}
+
+/* search input sizing consolidated later */
+
+/* Constrain the DataTables wrapper to the page padding and center it.
+   This ensures the generated filter and header/footer elements don't
+   extend past the visible table area. */
+.dataTables_wrapper {
+    max-width: calc(100% - 40px); /* respect body padding */
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+
+/* Ensure the table uses the wrapper width and doesn't allow internal
+   cloned header tables to become wider than the wrapper. */
+#songs-table {
+    width: 100% !important;
+    table-layout: auto;
+}
+
+/* When DataTables uses a scrolling header it creates extra elements; make
+   sure inner tables stay within bounds so header cells align with body. */
+.dataTables_scrollHeadInner table,
+.dataTables_scrollHeadInner table thead,
+.dataTables_scrollHeadInner table tbody {
+    width: 100% !important;
+    box-sizing: border-box;
+}
+
+/* Limit the filter label/input so it never pushes past the wrapper.
+   Keep a modest max width for the input so it can't grow unbounded. */
+#songs-table_filter label {
+    max-width: 100%;
+}
+
+#songs-table_filter input[type="search"] {
+    max-width: 260px;
+    width: auto;
+    display: inline-block;
+    box-sizing: border-box;
+}

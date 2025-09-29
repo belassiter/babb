@@ -8,9 +8,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Hide body by default to prevent flash of content
-document.body.style.display = 'none';
-
 // --- Configuration ---
 const baseUrl = "https://belassiter.com/babb";
 // ---------------------
@@ -70,13 +67,29 @@ function loadDataTablesData() {
             playSong(this);
         });
 
+        // Ensure columns and fixed header are adjusted after initialization
+        // to prevent header misalignment and search/filter overflow.
+        function adjustTable() {
+            try {
+                if (table.columns && typeof table.columns.adjust === 'function') {
+                    table.columns.adjust();
+                }
+                if (table.fixedHeader && typeof table.fixedHeader.adjust === 'function') {
+                    table.fixedHeader.adjust();
+                }
+            } catch (err) {
+                // swallow errors — better to degrade gracefully than crash
+                console.warn('Table adjust error', err);
+            }
+        }
+
         $(window).on('resize', function () {
-            table.fixedHeader.adjust();
+            adjustTable();
         });
 
-        setTimeout(function() {
-            $(window).trigger('resize');
-        }, 100);
+        // Do a couple of delayed adjustments after init to let layout settle
+        setTimeout(adjustTable, 50);
+        setTimeout(adjustTable, 250);
 
         document.body.style.display = 'block';
       })
