@@ -87,12 +87,12 @@ h1 {
 
     .dataTables_wrapper {
         max-width: 100%;
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
+        padding-left: 0;
+        padding-right: 0;
     }
 
     #songs-table_filter {
-        padding-right: 6px;
+        padding-right: 0;
     }
 }
 
