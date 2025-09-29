@@ -59,6 +59,7 @@ function loadDataTablesData() {
             "paging": false,
             "responsive": false,
             "fixedHeader": true,
+            "scrollX": true,
             "dom": 'Bfrtip',
             "buttons": ['pdf', 'excel', 'print']
         });
@@ -68,6 +69,14 @@ function loadDataTablesData() {
             e.preventDefault();
             playSong(this);
         });
+
+        $(window).on('resize', function () {
+            table.fixedHeader.adjust();
+        });
+
+        setTimeout(function() {
+            $(window).trigger('resize');
+        }, 100);
 
         document.body.style.display = 'block';
       })
