@@ -58,7 +58,32 @@ function loadDataTablesData() {
             "fixedHeader": true,
             "scrollX": true,
             "dom": 'Bfrtip',
-            "buttons": ['pdf', 'excel', 'print']
+            "buttons": [
+                {
+                    extend: 'pdfHtml5',
+                    exportOptions: {
+                        columns: [0, 1, 2, 3, 4]
+                    }
+                },
+                {
+                    extend: 'excelHtml5',
+                    exportOptions: {
+                        format: {
+                            body: function ( inner, rowidx, colidx, node ) {
+                                if (colidx === 5) {
+                                    var button = $(node).find('button');
+                                    return button.length ? button.data('src') : '';
+                                }
+                                if (colidx === 6) {
+                                    var link = $(node).find('a');
+                                    return link.length ? link.attr('href') : '';
+                                }
+                                return inner;
+                            }
+                        }
+                    }
+                }
+            ]
         });
 
         // Add event listener for play buttons using DataTables API
