@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, getDoc, writeBatch, serverTimestamp, increment, query, where, updateDoc, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
 
 // Initialize Firebase
@@ -11,6 +11,60 @@ const db = getFirestore(app);
 // --- Configuration ---
 const baseUrl = "https://belassiter.com/babb";
 // ---------------------
+
+async function logSongPlay(songNumberStr) {
+    if (!songNumberStr) {
+        alert("Please enter a valid song number.");
+        return;
+    }
+
+    // Use the song number as a string to match the data type in Firestore.
+    const songNumber = songNumberStr;
+
+    // 1. Query for the song by its 'Number' field
+    const songsCollectionRef = collection(db, "songs");
+    const q = query(songsCollectionRef, where("Number", "==", songNumber));
+
+    try {
+        const querySnapshot = await getDocs(q);
+
+        // 2. Validate the result
+        if (querySnapshot.empty) {
+            alert(`Error: Song with number ${songNumber} not found.`);
+            return;
+        }
+        if (querySnapshot.size > 1) {
+            alert(`Error: Multiple songs found with number ${songNumber}. Please correct the data.`);
+            return;
+        }
+
+        const songDoc = querySnapshot.docs[0];
+        const songRef = songDoc.ref;
+        const songData = songDoc.data();
+
+        // 3. Create a batched write
+        const batch = writeBatch(db);
+
+        const ledgerRef = doc(collection(db, "ledger"));
+        batch.set(ledgerRef, {
+            songId: songDoc.id, // Store the actual document ID
+            timestamp: serverTimestamp()
+        });
+
+        batch.update(songRef, {
+            plays: increment(1)
+        });
+
+        // 4. Commit the batch
+        await batch.commit();
+
+        alert(`Successfully logged a play for song #${songNumber} (${songData.Title}).`);
+
+    } catch (error) {
+        console.error("Error logging song play: ", error);
+        alert("An error occurred while logging the play. Please try again.");
+    }
+}
 
 function playSong(button) {
     const audioPlayerContainer = document.getElementById('audio-player-container');
@@ -259,6 +313,16 @@ if (window.location.pathname.endsWith('admin.html')) {
     });
 } else {
     loadDataTablesData();
+
+    const logPlayBtn = document.getElementById('log-play-btn');
+    if (logPlayBtn) {
+        logPlayBtn.addEventListener('click', () => {
+            const songId = prompt("Please enter the song number:");
+            if (songId) {
+                logSongPlay(songId.trim());
+            }
+        });
+    }
 }
 
 function addLogoutButton() {
