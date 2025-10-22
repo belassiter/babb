@@ -101,6 +101,7 @@ function loadDataTablesData() {
             <td>${song.Feature || ''}</td>
             <td>${song.MP3 ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${song.MP3}" data-number="${song.Number || ''}" data-title="${song.Title || ''}" data-album="${song.Album || ''}">Play</button>` : ''}</td>
             <td>${song.PDF ? `<a href="${baseUrl}/${song.PDF}" target="_blank">PDF</a>` : ''}</td>
+            <td>${song.plays || 0}</td>
           `;
           tableBody.appendChild(row);
         });
@@ -202,6 +203,7 @@ function loadTabulatorData() {
                 { title: "Arranger", field: "Arranger", editor: "input" },
                 { title: "Feature", field: "Feature", editor: "input" },
                 { title: "Album", field: "Album", editor: "input" },
+                { title: "Plays", field: "plays", sorter: "number" },
                 { 
                     title: "MP3", 
                     field: "MP3", 

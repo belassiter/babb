@@ -124,3 +124,9 @@ h1 {
     display: inline-block;
     box-sizing: border-box;
 }
+
+.btn-sm {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    font-size: 0.8rem !important;
+}
