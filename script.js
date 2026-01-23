@@ -34,6 +34,21 @@ async function logSongPlay(songNumberStr) {
         }
 
         const songDoc = querySnapshot.docs[0];
+
+        // --- Duplicate Check (Past 24 Hours) ---
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const duplicateQuery = query(
+            collection(db, 'ledger'), 
+            where("songId", "==", songDoc.id), 
+            where("timestamp", ">", Timestamp.fromDate(twentyFourHoursAgo))
+        );
+        const duplicateSnapshot = await getDocs(duplicateQuery);
+        if (!duplicateSnapshot.empty) {
+            alert(`Error: A play for song #${songNumber} (${songDoc.data().Title}) was already logged within the last 24 hours.`);
+            return;
+        }
+        // ----------------------------------------
+
         const ledgerPayload = { songId: songDoc.id, timestamp: Timestamp.fromDate(new Date()) };
         console.debug('Creating ledger-only entry:', ledgerPayload, { user: auth && auth.currentUser ? { uid: auth.currentUser.uid, email: auth.currentUser.email } : null });
         await addDoc(collection(db, 'ledger'), ledgerPayload);
@@ -206,11 +221,14 @@ function loadTabulatorData() {
         const addRowBtn = document.getElementById("add-row-btn");
         addRowBtn.addEventListener("click", function(){
             // Add a new song to Firestore
-            addDoc(collection(db, "songs"), { Title: "New Song" })
+            addDoc(collection(db, "songs"), { 
+                Title: "New Song",
+                DateAdded: Timestamp.now()
+            })
                 .then((docRef) => {
                     console.log("Document written with ID: ", docRef.id);
                     // Add to Tabulator table
-                    table.addRow({ id: docRef.id, Title: "New Song" });
+                    table.addRow({ id: docRef.id, Title: "New Song", DateAdded: Timestamp.now() });
                     table.redraw(); // Redraw table to show new row
                 })
                 .catch((error) => {
