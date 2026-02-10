@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, getDoc, query, where, updateDoc, deleteDoc, addDoc, runTransaction, Timestamp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, getDoc, query, where, updateDoc, deleteDoc, addDoc, runTransaction, Timestamp, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
 
 // Initialize Firebase
@@ -120,6 +120,111 @@ function playSong(button) {
 // Play buttons are handled by DataTables/Tabulator-specific handlers added where
 // each table is initialized. Removing the global delegated handler avoids
 // double-invocation of playSong (which caused AbortError on rapid clicks).
+
+
+// --- Play History Modal Logic ---
+async function showPlayHistory(songId, songTitle, songNumber) {
+    const modal = document.getElementById('play-history-modal');
+    const list = document.getElementById('play-history-list');
+    const title = document.getElementById('modal-song-title');
+    
+    // Reset content
+    list.innerHTML = '<li>Loading...</li>';
+    title.textContent = `#${songNumber} - ${songTitle}`;
+    modal.style.display = 'flex';
+
+    try {
+        const ledgerRef = collection(db, 'ledger');
+        // Try ordering by timestamp desc. If index is missing, this might fail.
+        // If it fails, we fall back to client-side sorting.
+        let q = query(ledgerRef, where("songId", "==", songId), orderBy("timestamp", "desc"));
+        
+        let querySnapshot;
+        try {
+            querySnapshot = await getDocs(q);
+        } catch (e) {
+            console.warn("Index might be missing, falling back to client-side sort", e);
+            const simpleQ = query(ledgerRef, where("songId", "==", songId));
+            querySnapshot = await getDocs(simpleQ);
+        }
+
+        const plays = [];
+        querySnapshot.forEach((doc) => {
+            plays.push(doc.data());
+        });
+
+        // Ensure sorted by timestamp desc
+        plays.sort((a, b) => {
+             const tA = a.timestamp ? a.timestamp.toMillis() : 0;
+             const tB = b.timestamp ? b.timestamp.toMillis() : 0;
+             return tB - tA;
+        });
+
+        list.innerHTML = '';
+        if (plays.length === 0) {
+            list.innerHTML = '<li>No detailed history found.</li>';
+        } else {
+            plays.forEach(play => {
+                const li = document.createElement('li');
+                if (play.timestamp) {
+                    const date = play.timestamp.toDate();
+                    // M/D/YYYY format based on local time
+                    const m = date.getMonth() + 1;
+                    const d = date.getDate();
+                    const y = date.getFullYear();
+                    li.textContent = `${m}/${d}/${y}`;
+                } else {
+                    li.textContent = "Unknown Date";
+                }
+                list.appendChild(li);
+            });
+        }
+    } catch (error) {
+        console.error("Error fetching play history:", error);
+        list.innerHTML = '<li>Error loading history.</li>';
+    }
+}
+
+// Modal Event Listeners
+// Note: Since this is a module, this runs when imported.
+const modal = document.getElementById('play-history-modal');
+const closeBtn = document.querySelector('.history-close-modal');
+
+if (modal) {
+    // Close on X
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+    }
+
+    // Close on click outside
+    window.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+
+    // Close on Esc
+    window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal.style.display === 'flex') {
+            modal.style.display = 'none';
+        }
+    });
+}
+
+// Delegated listener for plays count click
+const songsTable = document.getElementById('songs-table');
+if (songsTable) {
+    songsTable.addEventListener('click', (e) => {
+        if (e.target.classList.contains('plays-link')) {
+            const songId = e.target.getAttribute('data-id');
+            const title = e.target.getAttribute('data-title');
+            const number = e.target.getAttribute('data-number');
+            showPlayHistory(songId, title, number);
+        }
+    });
+}
 
 function loadTabulatorData() {
     const songsCollectionRef = collection(db, "songs");
@@ -311,6 +416,14 @@ function loadDataTablesData() {
                   return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
           })(safeLastPlayed) : '';
 
+          const playCount = Number(song.plays) || 0;
+          let playsHtml = '';
+          if (playCount > 0) {
+              playsHtml = `<span class="plays-link" title="${readableLastPlayed}" data-id="${docSnap.id}" data-title="${song.Title || ''}" data-number="${song.Number || ''}">${playCount}</span>`;
+          } else {
+              playsHtml = `<span title="${readableLastPlayed}">0</span>`;
+          }
+
           row.innerHTML = `
               <td>${song.Number || ''}</td>
               <td>${song.Title || ''}</td>
@@ -319,7 +432,7 @@ function loadDataTablesData() {
               <td>${song.Feature || ''}</td>
               <td>${song.MP3 ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${song.MP3}" data-number="${song.Number || ''}" data-title="${song.Title || ''}" data-album="${song.Album || ''}">Play</button>` : ''}</td>
               <td>${song.PDF ? `<a href="${baseUrl}/${song.PDF}" target="_blank">PDF</a>` : ''}</td>
-              <td><span title="${readableLastPlayed}">${song.plays || 0}</span></td>
+              <td>${playsHtml}</td>
           `;
           tableBody.appendChild(row);
         });
