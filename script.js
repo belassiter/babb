@@ -281,9 +281,12 @@ function loadTabulatorData() {
                 },
                 {
                     title: "Delete",
-                    formatter: "buttonCross",
-                    width: 40,
+                    formatter: function(cell) {
+                        return "❌";
+                    },
+                    width: 60,
                     hozAlign: "center",
+                    headerSort: false,
                     cellClick: function(e, cell) {
                         const row = cell.getRow();
                         const docId = row.getData().id;
