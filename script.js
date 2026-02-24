@@ -238,14 +238,14 @@ function loadTabulatorData() {
 
         const table = new Tabulator("#songs-table", {
             data: tableData,
-            layout: "fitData", // Let columns size to content
+            layout: "fitColumns", // Fit all columns within table width
             history: true, // Enable undo/redo
             initialSort: [
                 { column: "Number", dir: "asc" },
             ],
             columns: [
-                { title: "Number", field: "Number", editor: "input", sorter: "number" },
-                { title: "Title", field: "Title", editor: "input", minWidth: 200 },
+                { title: "Number", field: "Number", editor: "input", sorter: "number", width: 80 },
+                { title: "Title", field: "Title", editor: "input", widthGrow: 3 },
                 { title: "Composer", field: "Composer", editor: "input" },
                 { title: "Arranger", field: "Arranger", editor: "input" },
                 { title: "Feature", field: "Feature", editor: "input" },
