@@ -6,3 +6,6 @@ node_modules/
 
 # Local Firebase config
 firebase-config.js
+
+# Local Firestore rules (ignore local experiment files)
+firestore.rules

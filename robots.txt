@@ -1,2 +1,17 @@
+# Robustly reject indexing from all search engines and AI crawlers
 User-agent: *
+Disallow: /
+
+# Specifically target common AI scrapers
+User-agent: GPTBot
+Disallow: /
+User-agent: Google-Extended
+Disallow: /
+User-agent: CCBot
+Disallow: /
+User-agent: anthropic-ai
+Disallow: /
+User-agent: Claude-Web
+Disallow: /
+User-agent: OAI-SearchBot
 Disallow: /

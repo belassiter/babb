@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, getDoc, query, where, updateDoc, deleteDoc, addDoc, runTransaction, Timestamp, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
 
 // Initialize Firebase
@@ -12,11 +12,101 @@ const db = getFirestore(app);
 const baseUrl = "https://belassiter.com/babb";
 // ---------------------
 
+async function logSongPlay(songNumberStr) {
+    if (!songNumberStr) {
+        alert("Please enter a valid song number.");
+        return;
+    }
+
+    const songNumber = songNumberStr;
+    const songsCollectionRef = collection(db, "songs");
+    const q = query(songsCollectionRef, where("Number", "==", songNumber));
+
+    try {
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+            alert(`Error: Song with number ${songNumber} not found.`);
+            return;
+        }
+        if (querySnapshot.size > 1) {
+            alert(`Error: Multiple songs found with number ${songNumber}. Please correct the data.`);
+            return;
+        }
+
+        const songDoc = querySnapshot.docs[0];
+
+        // --- Duplicate Check (Past 24 Hours) ---
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const duplicateQuery = query(
+            collection(db, 'ledger'), 
+            where("songId", "==", songDoc.id), 
+            where("timestamp", ">", Timestamp.fromDate(twentyFourHoursAgo))
+        );
+        const duplicateSnapshot = await getDocs(duplicateQuery);
+        if (!duplicateSnapshot.empty) {
+            alert(`Error: A play for song #${songNumber} (${songDoc.data().Title}) was already logged within the last 24 hours.`);
+            return;
+        }
+        // ----------------------------------------
+
+        const ledgerPayload = { songId: songDoc.id, timestamp: Timestamp.fromDate(new Date()) };
+        console.debug('Creating ledger-only entry:', ledgerPayload, { user: auth && auth.currentUser ? { uid: auth.currentUser.uid, email: auth.currentUser.email } : null });
+        await addDoc(collection(db, 'ledger'), ledgerPayload);
+
+        // After ledger creation, increment the song's plays in a transaction.
+        // This handles the case where plays may be missing or non-numeric.
+        const songRef = songDoc.ref;
+        try {
+            // diagnostic read: get current server-side value before transaction
+            const preSnap = await getDoc(songRef);
+            const prePlays = preSnap.exists() ? preSnap.data().plays : null;
+            console.debug('Pre-increment read', { songId: songRef.id, prePlays, prePlaysType: typeof prePlays, user: auth && auth.currentUser ? { uid: auth.currentUser.uid, email: auth.currentUser.email } : null });
+
+            await runTransaction(db, async (tx) => {
+                const snap = await tx.get(songRef);
+                if (!snap.exists()) throw new Error('Song document no longer exists');
+                const data = snap.data();
+                const current = data.plays == null ? 0 : (Number.isFinite(Number(data.plays)) ? Math.floor(Number(data.plays)) : 0);
+                const newPlays = current + 1;
+
+                // Build date-only YYYY-MM-DD for LastPlayed
+                const d = new Date();
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const lastPlayedDate = `${yyyy}-${mm}-${dd}`;
+
+                console.debug('Transaction will write plays + LastPlayed', { songId: songRef.id, current, newPlays, lastPlayedDate });
+                tx.update(songRef, { plays: newPlays, LastPlayed: lastPlayedDate });
+            });
+
+            console.log('Plays incremented successfully after ledger write.');
+            alert(`Successfully logged a play for song #${songNumber} (${songDoc.data().Title}).`);
+        } catch (incErr) {
+            console.error('Failed to increment plays after ledger write:', incErr);
+            // If permission-denied, dump the preSnap and transaction intent for diagnosis
+            try {
+                const preSnap2 = await getDoc(songRef);
+                console.debug('Post-failure read', { songId: songRef.id, exists: preSnap2.exists(), data: preSnap2.exists() ? preSnap2.data() : null });
+            } catch (readErr) {
+                console.warn('Could not read song after failed increment:', readErr);
+            }
+            alert('Ledger created but could not increment plays. See console for details.');
+        }
+    } catch (err) {
+        console.error('Failed to create ledger entry:', err);
+        alert('Could not log play (ledger). See console for details.');
+    }
+}
+
+// Play an MP3 when a play button is clicked. Reuses a single hidden audio
+// element so multiple clicks don't leak elements. Expects the button to have
+// a data-src attribute with the audio URL.
 function playSong(button) {
     const audioPlayerContainer = document.getElementById('audio-player-container');
     const audioPlayer = document.getElementById('global-audio-player');
     const nowPlayingTitle = document.getElementById('now-playing-title');
-    
+
     const number = button.getAttribute('data-number');
     const title = button.getAttribute('data-title');
     const album = button.getAttribute('data-album');
@@ -27,101 +117,113 @@ function playSong(button) {
     audioPlayer.play();
 }
 
-function loadDataTablesData() {
-    const songsCollectionRef = collection(db, "songs");
+// Play buttons are handled by DataTables/Tabulator-specific handlers added where
+// each table is initialized. Removing the global delegated handler avoids
+// double-invocation of playSong (which caused AbortError on rapid clicks).
 
-    getDocs(songsCollectionRef)
-      .then((querySnapshot) => {
-        const tableBody = document.getElementById('songs-table-body');
-        if (!tableBody) return;
 
-        querySnapshot.forEach((doc) => {
-          const song = doc.data();
-          const row = document.createElement('tr');
+// --- Play History Modal Logic ---
+async function showPlayHistory(songId, songTitle, songNumber) {
+    const modal = document.getElementById('play-history-modal');
+    const list = document.getElementById('play-history-list');
+    const title = document.getElementById('modal-song-title');
+    
+    // Reset content
+    list.innerHTML = '<li>Loading...</li>';
+    title.textContent = `#${songNumber} - ${songTitle}`;
+    modal.style.display = 'flex';
 
-          row.innerHTML = `
-            <td>${song.Number || ''}</td>
-            <td>${song.Title || ''}</td>
-            <td>${song.Composer || ''}</td>
-            <td>${song.Arranger || ''}</td>
-            <td>${song.Feature || ''}</td>
-            <td>${song.MP3 ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${song.MP3}" data-number="${song.Number || ''}" data-title="${song.Title || ''}" data-album="${song.Album || ''}">Play</button>` : ''}</td>
-            <td>${song.PDF ? `<a href="${baseUrl}/${song.PDF}" target="_blank">PDF</a>` : ''}</td>
-          `;
-          tableBody.appendChild(row);
-        });
-
-        const table = $('#songs-table').DataTable({
-            "order": [[ 0, "asc" ]],
-            "paging": false,
-            "responsive": false,
-            "fixedHeader": true,
-            "scrollX": true,
-            "dom": 'Bfrtip',
-            "buttons": [
-                {
-                    extend: 'pdfHtml5',
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4]
-                    }
-                },
-                {
-                    extend: 'excelHtml5',
-                    exportOptions: {
-                        format: {
-                            body: function ( inner, rowidx, colidx, node ) {
-                                if (colidx === 5) {
-                                    var button = $(node).find('button');
-                                    return button.length ? button.data('src') : '';
-                                }
-                                if (colidx === 6) {
-                                    var link = $(node).find('a');
-                                    return link.length ? link.attr('href') : '';
-                                }
-                                return inner;
-                            }
-                        }
-                    }
-                }
-            ]
-        });
-
-        // Add event listener for play buttons using DataTables API
-        table.on('click touchend', '.play-btn', function (e) {
-            e.preventDefault();
-            playSong(this);
-        });
-
-        // Ensure columns and fixed header are adjusted after initialization
-        // to prevent header misalignment and search/filter overflow.
-        function adjustTable() {
-            try {
-                if (table.columns && typeof table.columns.adjust === 'function') {
-                    table.columns.adjust();
-                }
-                if (table.fixedHeader && typeof table.fixedHeader.adjust === 'function') {
-                    table.fixedHeader.adjust();
-                }
-            } catch (err) {
-                // swallow errors — better to degrade gracefully than crash
-                console.warn('Table adjust error', err);
-            }
+    try {
+        const ledgerRef = collection(db, 'ledger');
+        // Try ordering by timestamp desc. If index is missing, this might fail.
+        // If it fails, we fall back to client-side sorting.
+        let q = query(ledgerRef, where("songId", "==", songId), orderBy("timestamp", "desc"));
+        
+        let querySnapshot;
+        try {
+            querySnapshot = await getDocs(q);
+        } catch (e) {
+            console.warn("Index might be missing, falling back to client-side sort", e);
+            const simpleQ = query(ledgerRef, where("songId", "==", songId));
+            querySnapshot = await getDocs(simpleQ);
         }
 
-        $(window).on('resize', function () {
-            adjustTable();
+        const plays = [];
+        querySnapshot.forEach((doc) => {
+            plays.push(doc.data());
         });
 
-        // Do a couple of delayed adjustments after init to let layout settle
-        setTimeout(adjustTable, 50);
-        setTimeout(adjustTable, 250);
+        // Ensure sorted by timestamp desc
+        plays.sort((a, b) => {
+             const tA = a.timestamp ? a.timestamp.toMillis() : 0;
+             const tB = b.timestamp ? b.timestamp.toMillis() : 0;
+             return tB - tA;
+        });
 
-        document.body.style.display = 'block';
-      })
-      .catch((error) => {
-        console.error("Error getting documents for DataTables: ", error);
-        document.body.style.display = 'block';
-      });
+        list.innerHTML = '';
+        if (plays.length === 0) {
+            list.innerHTML = '<li>No detailed history found.</li>';
+        } else {
+            plays.forEach(play => {
+                const li = document.createElement('li');
+                if (play.timestamp) {
+                    const date = play.timestamp.toDate();
+                    // M/D/YYYY format based on local time
+                    const m = date.getMonth() + 1;
+                    const d = date.getDate();
+                    const y = date.getFullYear();
+                    li.textContent = `${m}/${d}/${y}`;
+                } else {
+                    li.textContent = "Unknown Date";
+                }
+                list.appendChild(li);
+            });
+        }
+    } catch (error) {
+        console.error("Error fetching play history:", error);
+        list.innerHTML = '<li>Error loading history.</li>';
+    }
+}
+
+// Modal Event Listeners
+// Note: Since this is a module, this runs when imported.
+const modal = document.getElementById('play-history-modal');
+const closeBtn = document.querySelector('.history-close-modal');
+
+if (modal) {
+    // Close on X
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+    }
+
+    // Close on click outside
+    window.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+
+    // Close on Esc
+    window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal.style.display === 'flex') {
+            modal.style.display = 'none';
+        }
+    });
+}
+
+// Delegated listener for plays count click
+const songsTable = document.getElementById('songs-table');
+if (songsTable) {
+    songsTable.addEventListener('click', (e) => {
+        if (e.target.classList.contains('plays-link')) {
+            const songId = e.target.getAttribute('data-id');
+            const title = e.target.getAttribute('data-title');
+            const number = e.target.getAttribute('data-number');
+            showPlayHistory(songId, title, number);
+        }
+    });
 }
 
 function loadTabulatorData() {
@@ -136,18 +238,32 @@ function loadTabulatorData() {
 
         const table = new Tabulator("#songs-table", {
             data: tableData,
-            layout: "fitData", // Let columns size to content
+            layout: "fitColumns", // Fit all columns within table width
             history: true, // Enable undo/redo
             initialSort: [
                 { column: "Number", dir: "asc" },
             ],
             columns: [
-                { title: "Number", field: "Number", editor: "input", sorter: "number" },
-                { title: "Title", field: "Title", editor: "input", minWidth: 200 },
+                { title: "Number", field: "Number", editor: "input", sorter: "number", width: 80 },
+                { title: "Title", field: "Title", editor: "input", widthGrow: 3 },
                 { title: "Composer", field: "Composer", editor: "input" },
                 { title: "Arranger", field: "Arranger", editor: "input" },
                 { title: "Feature", field: "Feature", editor: "input" },
                 { title: "Album", field: "Album", editor: "input" },
+                { title: "Plays", field: "plays", sorter: "number", formatter: (cell) => {
+                        const song = cell.getRow().getData();
+                        const safeLP = song.LastPlayed ? String(song.LastPlayed).replace(/"/g, '&quot;') : '';
+                        const readable = safeLP ? (function(ds){
+                            const parts = ds.split('-');
+                            if (parts.length !== 3) return ds;
+                            const y = parseInt(parts[0],10), m = parseInt(parts[1],10)-1, d = parseInt(parts[2],10);
+                            if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ds;
+                            const dt = new Date(y,m,d);
+                            return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+                        })(safeLP) : '';
+                        return `<span title="${readable}">${cell.getValue() || 0}</span>`;
+                    }
+                },
                 { 
                     title: "MP3", 
                     field: "MP3", 
@@ -165,9 +281,12 @@ function loadTabulatorData() {
                 },
                 {
                     title: "Delete",
-                    formatter: "buttonCross",
-                    width: 40,
+                    formatter: function(cell) {
+                        return "❌";
+                    },
+                    width: 60,
                     hozAlign: "center",
+                    headerSort: false,
                     cellClick: function(e, cell) {
                         const row = cell.getRow();
                         const docId = row.getData().id;
@@ -210,11 +329,14 @@ function loadTabulatorData() {
         const addRowBtn = document.getElementById("add-row-btn");
         addRowBtn.addEventListener("click", function(){
             // Add a new song to Firestore
-            addDoc(collection(db, "songs"), { Title: "New Song" })
+            addDoc(collection(db, "songs"), { 
+                Title: "New Song",
+                DateAdded: Timestamp.now()
+            })
                 .then((docRef) => {
                     console.log("Document written with ID: ", docRef.id);
                     // Add to Tabulator table
-                    table.addRow({ id: docRef.id, Title: "New Song" });
+                    table.addRow({ id: docRef.id, Title: "New Song", DateAdded: Timestamp.now() });
                     table.redraw(); // Redraw table to show new row
                 })
                 .catch((error) => {
@@ -259,6 +381,168 @@ if (window.location.pathname.endsWith('admin.html')) {
     });
 } else {
     loadDataTablesData();
+
+    const logPlayBtn = document.getElementById('log-play-btn');
+    if (logPlayBtn) {
+        logPlayBtn.addEventListener('click', () => {
+            const songId = prompt("Please enter the song number:");
+            if (songId) {
+                logSongPlay(songId.trim());
+            }
+        });
+    }
+}
+
+// Restore the DataTables loader function (was accidentally removed)
+function loadDataTablesData() {
+    const songsCollectionRef = collection(db, "songs");
+
+    getDocs(songsCollectionRef)
+      .then((querySnapshot) => {
+        const tableBody = document.getElementById('songs-table-body');
+        if (!tableBody) return;
+
+        // Clear any existing rows
+        tableBody.innerHTML = '';
+
+        querySnapshot.forEach((docSnap) => {
+          const song = docSnap.data();
+          const row = document.createElement('tr');
+
+          const safeLastPlayed = song.LastPlayed ? String(song.LastPlayed).replace(/"/g, '&quot;') : '';
+          const readableLastPlayed = safeLastPlayed ? (function(ds){
+                  const parts = ds.split('-');
+                  if (parts.length !== 3) return ds;
+                  const y = parseInt(parts[0],10), m = parseInt(parts[1],10)-1, d = parseInt(parts[2],10);
+                  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ds;
+                  const dt = new Date(y,m,d);
+                  return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+          })(safeLastPlayed) : '';
+
+          const playCount = Number(song.plays) || 0;
+          let playsHtml = '';
+          if (playCount > 0) {
+              playsHtml = `<span class="plays-link" title="${readableLastPlayed}" data-id="${docSnap.id}" data-title="${song.Title || ''}" data-number="${song.Number || ''}">${playCount}</span>`;
+          } else {
+              playsHtml = `<span title="${readableLastPlayed}">0</span>`;
+          }
+
+          row.innerHTML = `
+              <td>${song.Number || ''}</td>
+              <td>${song.Title || ''}</td>
+              <td>${song.Composer || ''}</td>
+              <td>${song.Arranger || ''}</td>
+              <td>${song.Feature || ''}</td>
+              <td>${song.MP3 ? `<button class="btn btn-success btn-sm play-btn" data-src="${baseUrl}/${song.MP3}" data-number="${song.Number || ''}" data-title="${song.Title || ''}" data-album="${song.Album || ''}">Play</button>` : ''}</td>
+              <td>${song.PDF ? `<a href="${baseUrl}/${song.PDF}" target="_blank">PDF</a>` : ''}</td>
+              <td>${playsHtml}</td>
+          `;
+          tableBody.appendChild(row);
+        });
+
+        // Initialize DataTables (if not already) with export buttons and play handling
+        if (window.$ && $.fn && $.fn.DataTable) {
+            try {
+                if (!$.fn.DataTable.isDataTable('#songs-table')) {
+                    const table = $('#songs-table').DataTable({
+                        "order": [[ 0, "asc" ]],
+                        "paging": false,
+                        "responsive": false,
+                        "fixedHeader": true,
+                        "scrollX": true,
+                        "dom": 'Bfrtip',
+                        "buttons": [
+                            {
+                                extend: 'pdfHtml5',
+                                exportOptions: {
+                                    columns: [0, 1, 2, 3, 4]
+                                }
+                            },
+                            {
+                                extend: 'excelHtml5',
+                                exportOptions: {
+                                    format: {
+                                        body: function ( inner, rowidx, colidx, node ) {
+                                            if (colidx === 5) {
+                                                var button = $(node).find('button');
+                                                return button.length ? button.data('src') : '';
+                                            }
+                                            if (colidx === 6) {
+                                                var link = $(node).find('a');
+                                                return link.length ? link.attr('href') : '';
+                                            }
+                                            return inner;
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    });
+
+                    // Add event listener for play buttons using DataTables API
+                    table.on('click touchend', '.play-btn', function (e) {
+                        e.preventDefault();
+                        playSong(this);
+                    });
+
+                    // Move custom global search input (#global-filter) into the buttons row so
+                    // it appears on the same line as the export buttons.
+                    try {
+                        const $wrapper = $('#songs-table_wrapper');
+                        const $buttons = $wrapper.find('.dt-buttons');
+                        const $global = $('#global-filter');
+                        if ($buttons.length && $global.length) {
+                            // hide the default DataTables filter to avoid duplicate inputs
+                            $wrapper.find('div.dataTables_filter').hide();
+                            // move our global filter into the buttons container and style it inline
+                            $global.detach().css({ display: 'inline-block', marginLeft: '10px', verticalAlign: 'middle' }).insertAfter($buttons);
+                        }
+                    } catch (e) {
+                        // non-fatal
+                    }
+
+                    // Fix header alignment issues: adjust columns and fixed header after init
+                    try {
+                        if (table.columns && typeof table.columns.adjust === 'function') {
+                            table.columns.adjust();
+                        }
+                        if (table.fixedHeader && typeof table.fixedHeader.adjust === 'function') {
+                            table.fixedHeader.adjust();
+                        }
+                    } catch (err) {
+                        // ignore
+                    }
+                    // Schedule a couple of delayed adjustments to let layout settle
+                    setTimeout(() => {
+                        try {
+                            if (table.columns && typeof table.columns.adjust === 'function') table.columns.adjust();
+                            if (table.fixedHeader && typeof table.fixedHeader.adjust === 'function') table.fixedHeader.adjust();
+                        } catch (e) {}
+                    }, 50);
+                    setTimeout(() => {
+                        try {
+                            if (table.columns && typeof table.columns.adjust === 'function') table.columns.adjust();
+                            if (table.fixedHeader && typeof table.fixedHeader.adjust === 'function') table.fixedHeader.adjust();
+                        } catch (e) {}
+                    }, 250);
+                } else {
+                    // If already initialized, just wire play buttons in case rows changed
+                    document.querySelectorAll('.play-btn').forEach(btn => btn.addEventListener('click', function(e){
+                        e.preventDefault();
+                        playSong(this);
+                    }));
+                }
+            } catch (e) {
+                console.warn('DataTables init warning', e);
+            }
+        }
+
+        document.body.style.display = 'block';
+      })
+      .catch((error) => {
+        console.error("Error getting documents for DataTables: ", error);
+        document.body.style.display = 'block';
+      });
 }
 
 function addLogoutButton() {
