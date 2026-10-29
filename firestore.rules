@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /songs/{songId} {
+      // Public read
+      allow get, list: if true;
+
+  // Any signed-in user (admin page users) may create or delete songs.
+  // Unauthenticated visitors (index.html) remain subject to the plays-only
+  // update rule below.
+  allow create, delete: if request.auth != null;
+      // Public updates may only increment `plays` by exactly 1. Optionally
+      // LastPlayed may also be provided as a date-only string (YYYY-MM-DD).
+      // Admins can perform any update.
+      function isDateOnlyString(s) {
+        return s is string && s.matches('^\\d{4}-\\d{2}-\\d{2}$');
+      }
+
+      // Public updates may change exactly 'plays' OR exactly 'plays' and
+      // 'LastPlayed'. For testing/compatibility we do NOT enforce an exact
+      // increment here — the client must set `plays` to an integer. If
+      // LastPlayed is present it must be YYYY-MM-DD.
+
+      // Allow full updates for any signed-in user (admin page users).
+      // Also allow public (unauthenticated) plays-only updates that increment
+      // plays by exactly 1 (optionally with LastPlayed).
+      allow update: if (
+        (request.auth != null)
+        ||
+        (
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plays']) ||
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plays', 'LastPlayed'])
+          )
+          && request.resource.data.plays is int
+          && ( !request.resource.data.keys().hasAll(['LastPlayed']) || isDateOnlyString(request.resource.data.LastPlayed) )
+          // enforce exact +1 (handle missing previous plays as starting at 0 -> new value 1)
+          && (
+            (resource.data.plays is int && request.resource.data.plays == resource.data.plays + 1)
+            || (resource.data.plays == null && request.resource.data.plays == 1)
+          )
+        )
+      );
+    }
+
+    match /ledger/{entry} {
+      allow create, read: if true;
+      allow update, delete: if false;
+    }
+  }
+}
