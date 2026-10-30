@@ -2,6 +2,14 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
 import { getFirestore, collection, getDocs, doc, getDoc, query, where, updateDoc, deleteDoc, addDoc, runTransaction, Timestamp, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
+import {
+    formatLastPlayed,
+    getLocalDateString,
+    incrementPlays,
+    matchesSearchFilter,
+    sortLedgerPlaysDescending,
+    formatHistoryPlayDate
+} from './repertoire-calc.js';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -66,17 +74,10 @@ async function logSongPlay(songNumberStr) {
                 const snap = await tx.get(songRef);
                 if (!snap.exists()) throw new Error('Song document no longer exists');
                 const data = snap.data();
-                const current = data.plays == null ? 0 : (Number.isFinite(Number(data.plays)) ? Math.floor(Number(data.plays)) : 0);
-                const newPlays = current + 1;
+                const newPlays = incrementPlays(data.plays);
+                const lastPlayedDate = getLocalDateString();
 
-                // Build date-only YYYY-MM-DD for LastPlayed
-                const d = new Date();
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                const lastPlayedDate = `${yyyy}-${mm}-${dd}`;
-
-                console.debug('Transaction will write plays + LastPlayed', { songId: songRef.id, current, newPlays, lastPlayedDate });
+                console.debug('Transaction will write plays + LastPlayed', { songId: songRef.id, current: data.plays, newPlays, lastPlayedDate });
                 tx.update(songRef, { plays: newPlays, LastPlayed: lastPlayedDate });
             });
 
@@ -153,29 +154,15 @@ async function showPlayHistory(songId, songTitle, songNumber) {
             plays.push(doc.data());
         });
 
-        // Ensure sorted by timestamp desc
-        plays.sort((a, b) => {
-             const tA = a.timestamp ? a.timestamp.toMillis() : 0;
-             const tB = b.timestamp ? b.timestamp.toMillis() : 0;
-             return tB - tA;
-        });
+        const sortedPlays = sortLedgerPlaysDescending(plays);
 
         list.innerHTML = '';
-        if (plays.length === 0) {
+        if (sortedPlays.length === 0) {
             list.innerHTML = '<li>No detailed history found.</li>';
         } else {
-            plays.forEach(play => {
+            sortedPlays.forEach(play => {
                 const li = document.createElement('li');
-                if (play.timestamp) {
-                    const date = play.timestamp.toDate();
-                    // M/D/YYYY format based on local time
-                    const m = date.getMonth() + 1;
-                    const d = date.getDate();
-                    const y = date.getFullYear();
-                    li.textContent = `${m}/${d}/${y}`;
-                } else {
-                    li.textContent = "Unknown Date";
-                }
+                li.textContent = formatHistoryPlayDate(play.timestamp);
                 list.appendChild(li);
             });
         }
@@ -252,15 +239,7 @@ function loadTabulatorData() {
                 { title: "Album", field: "Album", editor: "input" },
                 { title: "Plays", field: "plays", sorter: "number", formatter: (cell) => {
                         const song = cell.getRow().getData();
-                        const safeLP = song.LastPlayed ? String(song.LastPlayed).replace(/"/g, '&quot;') : '';
-                        const readable = safeLP ? (function(ds){
-                            const parts = ds.split('-');
-                            if (parts.length !== 3) return ds;
-                            const y = parseInt(parts[0],10), m = parseInt(parts[1],10)-1, d = parseInt(parts[2],10);
-                            if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ds;
-                            const dt = new Date(y,m,d);
-                            return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-                        })(safeLP) : '';
+                        const readable = formatLastPlayed(song.LastPlayed);
                         return `<span title="${readable}">${cell.getValue() || 0}</span>`;
                     }
                 },
@@ -311,13 +290,7 @@ function loadTabulatorData() {
         const globalFilter = document.getElementById("global-filter");
         
         const customGlobalFilter = (data, filterParams) => {
-            const filterValue = filterParams.value.toLowerCase();
-            for(let key in data){
-                if(String(data[key]).toLowerCase().includes(filterValue)){
-                    return true;
-                }
-            }
-            return false;
+            return matchesSearchFilter(data, filterParams.value);
         };
 
         globalFilter.addEventListener("keyup", function(){
@@ -409,15 +382,7 @@ function loadDataTablesData() {
           const song = docSnap.data();
           const row = document.createElement('tr');
 
-          const safeLastPlayed = song.LastPlayed ? String(song.LastPlayed).replace(/"/g, '&quot;') : '';
-          const readableLastPlayed = safeLastPlayed ? (function(ds){
-                  const parts = ds.split('-');
-                  if (parts.length !== 3) return ds;
-                  const y = parseInt(parts[0],10), m = parseInt(parts[1],10)-1, d = parseInt(parts[2],10);
-                  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ds;
-                  const dt = new Date(y,m,d);
-                  return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-          })(safeLastPlayed) : '';
+          const readableLastPlayed = formatLastPlayed(song.LastPlayed);
 
           const playCount = Number(song.plays) || 0;
           let playsHtml = '';

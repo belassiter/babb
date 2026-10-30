@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
+import { isAuthorizedAdmin } from './repertoire-calc.js';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -23,7 +24,7 @@ document.getElementById('google-login-btn').addEventListener('click', () => {
             const user = result.user;
 
             // Check if the signed-in user's email is in the authorized list
-            if (authorizedAdmins.includes(user.email)) {
+            if (isAuthorizedAdmin(user.email, authorizedAdmins)) {
                 // User is authorized, redirect to admin page
                 window.location.href = 'admin.html';
             } else {
