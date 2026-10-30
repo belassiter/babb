@@ -1,5 +1,15 @@
 {
+  "scripts": {
+    "dev": "serve .",
+    "start": "serve .",
+    "check": "node check.js",
+    "test": "node --no-warnings --test",
+    "validate": "node check.js && node --no-warnings --test"
+  },
   "dependencies": {
     "firebase-admin": "^13.5.0"
+  },
+  "devDependencies": {
+    "serve": "^14.2.6"
   }
 }
